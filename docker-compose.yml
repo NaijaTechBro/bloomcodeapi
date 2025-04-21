@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: podcast_app
+    restart: unless-stopped
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www
+    networks:
+      - podcast_network
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: podcast_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - podcast_network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: podcast_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: podcast_db
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_PASSWORD: db_password
+      MYSQL_USER: db_user
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - podcast_network
+
+  redis:
+    image: redis:alpine
+    container_name: podcast_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - podcast_network
+
+networks:
+  podcast_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
